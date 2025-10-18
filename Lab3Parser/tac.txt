@@ -1,0 +1,20 @@
+x = 0
+y = 2.5
+t1 = 4 * 2
+t2 = 3 + t1
+x = t2
+if x > 5 goto L1
+goto L2
+L1:
+print x
+L3:
+if x > 0 goto L4
+goto L5
+L4:
+t3 = x - 3
+x = t3
+goto L3
+L5:
+L2:
+t4 = y + x
+print t4

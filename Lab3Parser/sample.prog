@@ -1,0 +1,8 @@
+int x;
+double y = 2.5;
+x = 3 + 4*2;
+if (x > 5) {
+  print(x);
+  while (x > 0) { x = x - 3; }
+}
+print(y + x);
