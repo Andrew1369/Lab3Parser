@@ -1222,7 +1222,7 @@ yyreduce:
 
   case 11: /* block: '{' stmts '}'  */
 #line 79 "D:\\Study\\University\\System_programming\\Lab3Parser\\Lab3Parser\\src\\parser.y"
-                             { (yyval.stmt) = (yyvsp[-1].block); }
+                             { (yyvsp[-1].block)->setScoped(true); (yyval.stmt) = (yyvsp[-1].block); }
 #line 1227 "D:\\Study\\University\\System_programming\\Lab3Parser\\Lab3Parser\\generated\\parser.cpp"
     break;
 

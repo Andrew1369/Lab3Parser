@@ -22,7 +22,7 @@ int main(int argc, char* argv[]) {
 
     for (int i = 1; i < argc; ++i) {
         std::string a = argv[i];
-        if (a == "--ast" || a == "--dot") emitDot = true;
+        if (a == "--ast") emitDot = true;
         else if (a == "--tac") emitTac = true;
         else inputFile = a;
     }

@@ -14,7 +14,41 @@
 namespace AST {
 
     struct Context {
-        std::unordered_map<std::string, double> vars;
+        std::vector<std::unordered_map<std::string, double>> scopes;
+
+        Context() { push(); } // один глобальний скоуп
+
+        void push() { scopes.emplace_back(); }
+        void pop() {
+            if (scopes.empty()) throw std::runtime_error("scope underflow");
+            scopes.pop_back();
+        }
+
+        // оголосити у поточному скоупі
+        bool declare(const std::string& name, double value) {
+            auto& cur = scopes.back();
+            if (cur.count(name)) return false; // уже є в цьому скоупі
+            cur[name] = value;
+            return true;
+        }
+
+        // присвоїти у найближчому знайденому скоупі
+        bool assign(const std::string& name, double value) {
+            for (auto it = scopes.rbegin(); it != scopes.rend(); ++it) {
+                auto f = it->find(name);
+                if (f != it->end()) { f->second = value; return true; }
+            }
+            return false;
+        }
+
+        // зчитати з найближчого знайденого скоупу
+        double get(const std::string& name) const {
+            for (auto it = scopes.rbegin(); it != scopes.rend(); ++it) {
+                auto f = it->find(name);
+                if (f != it->end()) return f->second;
+            }
+            throw std::runtime_error("undefined variable: " + name);
+        }
     };
 
     struct Node {
@@ -41,9 +75,7 @@ namespace AST {
         std::string name;
         explicit Ident(std::string n) : name(std::move(n)) {}
         double eval(Context& ctx) const override {
-            auto it = ctx.vars.find(name);
-            if (it == ctx.vars.end()) throw std::runtime_error("undefined variable: " + name);
-            return it->second;
+            return ctx.get(name);
         }
         void emitDOT(std::ostream& out, int& id, int parent) const override {
             int me = id++;
@@ -150,10 +182,20 @@ namespace AST {
 
     struct Block : Stmt {
         std::vector<std::unique_ptr<Stmt>> items;
+        bool createScope = false; // <— НОВЕ
+
+        Block() = default;
+        explicit Block(bool scoped) : createScope(scoped) {}
+
+        void setScoped(bool v) { createScope = v; } // <— НОВЕ
         void add(Stmt* s) { items.emplace_back(s); }
+
         void exec(Context& ctx) const override {
+            if (createScope) ctx.push();     // <— НОВЕ: входимо у скоуп
             for (auto& s : items) s->exec(ctx);
+            if (createScope) ctx.pop();      // <— НОВЕ: виходимо зі скоупу
         }
+
         void emitDOT(std::ostream& out, int& id, int parent) const override {
             int me = id++;
             out << "  n" << me << " [label=\"Block\"];\n";
@@ -167,12 +209,13 @@ namespace AST {
     struct VarDecl : Stmt {
         Type type;
         std::string name;
-        std::unique_ptr<Expr> init; // may be null
+        std::unique_ptr<Expr> init;
         VarDecl(Type t, std::string n, Expr* e = nullptr) : type(t), name(std::move(n)), init(e) {}
         void exec(Context& ctx) const override {
-            double v = 0.0;
-            if (init) v = init->eval(ctx);
-            ctx.vars[name] = v; // одне сховище double — просто й наочно
+            double v = init ? init->eval(ctx) : 0.0;
+            if (!ctx.declare(name, v)) {
+                throw std::runtime_error("redeclaration in the same scope: " + name);
+            }
         }
         void emitDOT(std::ostream& out, int& id, int parent) const override {
             int me = id++;
@@ -188,7 +231,9 @@ namespace AST {
         Assign(std::string n, Expr* v) : name(std::move(n)), value(v) {}
         void exec(Context& ctx) const override {
             double v = value->eval(ctx);
-            ctx.vars[name] = v;
+            if (!ctx.assign(name, v)) {
+                throw std::runtime_error("assignment to undeclared variable: " + name);
+            }
         }
         void emitDOT(std::ostream& out, int& id, int parent) const override {
             int me = id++;
